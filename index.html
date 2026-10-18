@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c1b36">
+<title>So‘zbon — IT atamalar bellashuvi | CyberSo‘z</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav><div class="brand">Cyber<b>So‘z</b></div><div class="tag">21-oktyabr · O‘zbek tili bayrami</div></nav>
+<main>
+
+<section id="s-start">
+<h1>So‘zbon</h1>
+<p class="lead">21-oktyabr — O‘zbek tili bayrami munosabati bilan: IT atamalarining sof o‘zbekcha nomini top, ball to‘pla va liderlar jadvalidan joy ol.</p>
+<div class="panel">
+<ul class="rules">
+<li><strong>+5…15</strong>to‘g‘ri javob</li><li class="neg"><strong>−5</strong>noto‘g‘ri javob</li><li class="neg"><strong>−5</strong>vaqt tugasa</li></ul>
+<div class="row"><div><label for="fn">Ism</label><input id="fn" maxlength="20" autocomplete="given-name" placeholder="Masalan: Jasur"></div>
+<div><label for="ln">Familiya</label><input id="ln" maxlength="24" autocomplete="family-name" placeholder="Masalan: Karimov"></div></div>
+<div class="fb" id="err" style="color:var(--red);margin:-6px 0 10px;min-height:0"></div>
+<button class="btn" id="go">O‘yinni boshlash</button>
+<p class="note">10 ta savol (oson → pro, qiyinlik oshib boradi). Ketma-ket 3 ta to‘g‘ri javobdan so‘ng EXTREME savollar tushadi: xatosi −10 · har biriga 12 soniya · bitta urinish. Bitta xato qilsangiz, maksimal ball imkoni yopiladi.</p>
+</div>
+</section>
+
+<section id="s-game" class="hide">
+<div class="panel">
+<div class="top"><span class="who" id="who"></span><span class="chip">Savol <b id="num">1</b>/10</span><span class="score">Ball: <b id="sc">0</b></span><span class="chip lvl"><i id="lv"></i></span></div>
+<div class="bar"><i id="bar"></i></div>
+<p class="q" id="q"></p>
+<div class="opts" id="opts"></div>
+<div class="fb" id="fb" aria-live="polite"></div>
+</div>
+</section>
+
+<section id="s-end" class="hide">
+<div class="panel" style="text-align:center">
+<p style="margin:0;color:var(--mut)" id="endwho"></p>
+<div class="big" id="final">0</div>
+<h2 id="rank"></h2>
+<p class="lead" id="sum" style="margin:0 auto 18px"></p>
+<div style="text-align:left"><h2 style="font-size:18px">Liderlar jadvali</h2>
+<table><thead><tr><th>O‘yinchi</th><th>Ball</th></tr></thead><tbody id="lb"></tbody></table></div>
+<p class="note">Har bir ishtirokchiga bitta urinish beriladi.</p>
+</div>
+</section>
+
+</main>
+<script src="script.js"></script>
+</body>
+</html>
