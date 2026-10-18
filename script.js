@@ -399,53 +399,149 @@ function genX() {
     o: lines.map((l, i) => (i === f ? bad : l)),
   };
 }
-const PK = "sozbon_played";
+const CFG = window.SOZBON_CONFIG || {},
+  REMOTE = !!(CFG.SUPABASE_URL && CFG.SUPABASE_KEY),
+  ME = "sozbon_me",
+  LBK = "sozbon_lb",
+  PLK = "sozbon_played";
+const api = (path, o) =>
+  fetch(
+    CFG.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/" + path,
+    Object.assign(
+      {
+        headers: {
+          apikey: CFG.SUPABASE_KEY,
+          Authorization: "Bearer " + CFG.SUPABASE_KEY,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+      },
+      o
+    )
+  );
 const norm = (t) =>
   t
     .toLowerCase()
     .replace(/[‘’ʻʼ`']/g, "'")
-    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}']+/gu, " ")
     .trim()
     .split(" ")
     .sort()
-    .join(" ");
-const played = () => {
+    .join("_");
+const getMe = () => {
   try {
-    return JSON.parse(localStorage.getItem(PK) || "[]");
+    return JSON.parse(localStorage.getItem(ME) || "null");
+  } catch (e) {
+    return null;
+  }
+};
+const setMe = (o) => {
+  try {
+    localStorage.setItem(ME, JSON.stringify(o));
+  } catch (e) {}
+};
+let me = null,
+  pkey = "";
+async function register(k, n) {
+  if (REMOTE) {
+    try {
+      const r = await api("players", {
+        method: "POST",
+        body: JSON.stringify({ key: k, name: n }),
+      });
+      return r.status === 409 ? "dup" : r.ok ? "ok" : "net";
+    } catch (e) {
+      return "net";
+    }
+  }
+  let l = [];
+  try {
+    l = JSON.parse(localStorage.getItem(PLK) || "[]");
+  } catch (e) {}
+  if (l.includes(k)) return "dup";
+  try {
+    localStorage.setItem(PLK, JSON.stringify(l.concat(k)));
+  } catch (e) {}
+  return "ok";
+}
+async function submit() {
+  if (!me || me.sent) return;
+  if (REMOTE) {
+    try {
+      const r = await api(
+        "players?key=eq." + encodeURIComponent(me.key) + "&score=is.null",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            score: me.score,
+            correct: me.right,
+            perfect: !me.lost,
+          }),
+        }
+      );
+      if (r.ok) {
+        me.sent = true;
+        setMe(me);
+      }
+    } catch (e) {}
+    return;
+  }
+  try {
+    let l = JSON.parse(localStorage.getItem(LBK) || "[]");
+    l.push({ n: me.name, s: me.score });
+    l.sort((a, b) => b.s - a.s);
+    localStorage.setItem(LBK, JSON.stringify(l.slice(0, 10)));
+  } catch (e) {}
+  me.sent = true;
+  setMe(me);
+}
+async function board() {
+  if (REMOTE) {
+    try {
+      const r = await api(
+        "players?select=name,score&score=not.is.null&order=score.desc,created_at.asc&limit=10"
+      );
+      if (r.ok) return (await r.json()).map((x) => ({ n: x.name, s: x.score }));
+    } catch (e) {}
+    return null;
+  }
+  try {
+    return JSON.parse(localStorage.getItem(LBK) || "[]");
   } catch (e) {
     return [];
   }
-};
-function save() {
-  try {
-    const k = "sozbon_lb";
-    let l = JSON.parse(localStorage.getItem(k) || "[]");
-    l.push({ n: name, s: score, t: Date.now() });
-    l.sort((a, b) => b.s - a.s);
-    l = l.slice(0, 10);
-    localStorage.setItem(k, JSON.stringify(l));
-    return l;
-  } catch (e) {
-    return [{ n: name, s: score, t: 0 }];
-  }
 }
-function start() {
+function persist(ans) {
+  setMe({
+    key: pkey,
+    name,
+    st: "playing",
+    g: { qs, i, score, right, lost, streak, xc, XB, ans: !!ans },
+  });
+}
+async function start() {
   const f = $("fn").value.trim(),
     l = $("ln").value.trim();
   if (f.length < 2 || l.length < 2) {
     $("err").textContent = "Iltimos, ism va familiyangizni to‘liq kiriting.";
     return;
   }
-  const key = norm(f + " " + l);
-  if (played().includes(key)) {
+  const k = norm(f + " " + l);
+  $("go").disabled = true;
+  const r = await register(k, f + " " + l);
+  $("go").disabled = false;
+  if (r === "dup") {
     $("err").textContent =
       "Siz avval ishtirok etgansiz. Har bir ishtirokchiga bitta urinish beriladi.";
     return;
   }
-  try {
-    localStorage.setItem(PK, JSON.stringify(played().concat(key)));
-  } catch (e) {}
+  if (r === "net") {
+    $("err").textContent =
+      "Aloqa xatosi. Internetni tekshirib, qayta urinib ko‘ring.";
+    return;
+  }
   $("err").textContent = "";
+  pkey = k;
   name = f + " " + l;
   lost = false;
   streak = 0;
@@ -468,6 +564,7 @@ function next() {
     xc++;
   }
   const c = qs[i];
+  persist(false);
   $("num").textContent = i + 1;
   $("lv").textContent =
     TN[c.t] +
@@ -545,12 +642,18 @@ function answer(btn, t) {
     lost = true;
     fb.textContent += " Maksimal ball imkoni yopildi.";
   }
+  persist(true);
   setTimeout(() => {
     i++;
     i < N ? next() : finish();
   }, 1800);
 }
 function finish() {
+  me = { key: pkey, name, st: "done", score, right, lost, sent: false };
+  setMe(me);
+  showEnd();
+}
+async function showEnd() {
   show("s-end");
   $("endwho").textContent = name;
   $("final").textContent = score;
@@ -569,9 +672,20 @@ function finish() {
     right +
     " tasiga to‘g‘ri javob berdingiz." +
     (lost ? "" : " Benuqson natija!");
-  const l = save();
   const tb = $("lb");
   tb.innerHTML = "";
+  await submit();
+  const l = await board();
+  tb.innerHTML = "";
+  if (!l) {
+    const tr = document.createElement("tr"),
+      td = document.createElement("td");
+    td.colSpan = 2;
+    td.textContent = "Liderlar jadvalini yuklab bo‘lmadi. Sahifani yangilang.";
+    tr.appendChild(td);
+    tb.appendChild(tr);
+    return;
+  }
   let mine = false;
   l.forEach((e, k) => {
     const tr = document.createElement("tr");
@@ -587,9 +701,46 @@ function finish() {
     tb.appendChild(tr);
   });
 }
+function boot() {
+  me = getMe();
+  if (!me) return;
+  name = me.name;
+  pkey = me.key;
+  if (me.st === "done") {
+    score = me.score;
+    right = me.right;
+    lost = me.lost;
+    showEnd();
+    return;
+  }
+  if (me.st === "playing" && me.g) {
+    ({ qs, i, score, right, lost, streak, xc, XB } = me.g);
+    $("who").textContent = name;
+    show("s-game");
+    let note = "";
+    if (!me.g.ans) {
+      score -= PN[qs[i].t];
+      streak = 0;
+      lost = true;
+      note =
+        "Sahifa yangilangani uchun oldingi savol xato hisoblandi (−" +
+        PN[qs[i].t] +
+        ").";
+    }
+    i++;
+    if (i < N) {
+      next();
+      if (note) {
+        $("fb").textContent = note;
+        $("fb").style.color = "var(--red)";
+      }
+    } else finish();
+  }
+}
 $("go").onclick = start;
 ["fn", "ln"].forEach((id) =>
   $(id).addEventListener("keydown", (e) => {
     if (e.key === "Enter") start();
   })
 );
+boot();
